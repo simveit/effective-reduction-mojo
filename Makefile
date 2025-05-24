@@ -42,8 +42,8 @@ run_all: compile_all
 	@echo "Running one_pass_1..."; ./$(OUT_DIR)/one_pass_1
 	@echo "Running one_pass_2..."; ./$(OUT_DIR)/one_pass_2
 	@echo "Running one_pass_3..."; ./$(OUT_DIR)/one_pass_3
-	@echo "Running one_pass_3..."; ./$(OUT_DIR)/one_pass_4
-	@echo "Running one_pass_3..."; ./$(OUT_DIR)/one_pass_5
+	@echo "Running one_pass_4..."; ./$(OUT_DIR)/one_pass_4
+	@echo "Running one_pass_5..."; ./$(OUT_DIR)/one_pass_5
 
 clean:
 	rm -f $(OUT_DIR)/*

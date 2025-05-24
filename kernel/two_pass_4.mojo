@@ -125,7 +125,7 @@ def main():
         var bandwidth: Float64 = SIZE * 4 / delta / 1e9
         print("delta(s) = ", delta)
         print("GB/s = ", bandwidth)
-        print("% of max = ", 3300 / bandwidth)
+        print("% of max = ", bandwidth / 3300 * 100)
 
         expected = ctx.enqueue_create_host_buffer[dtype](1).enqueue_fill(0)
 
