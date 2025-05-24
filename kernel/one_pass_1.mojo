@@ -13,7 +13,7 @@ from time import perf_counter_ns
 
 alias TPB = 512
 alias LOG_TPB = 9
-alias SIZE = 1 << 25
+alias SIZE = 1 << 29
 alias NUM_BLOCKS = ceildiv(SIZE, TPB)
 alias BLOCKS_PER_GRID_STAGE_1 = NUM_BLOCKS
 alias BLOCKS_PER_GRID_STAGE_2 = 1
