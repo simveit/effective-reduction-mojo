@@ -1,7 +1,7 @@
 from testing import assert_equal
 from gpu.host import DeviceContext
 
-from gpu import thread_idx, block_idx, block_dim, grid_dim, warp, barrier
+from gpu import thread_idx, block_idx, block_dim, grid_dim, barrier
 from layout import Layout, LayoutTensor
 from layout.tensor_builder import LayoutTensorBuild as tb
 
@@ -11,7 +11,7 @@ from time import perf_counter_ns
 
 alias TPB = 512
 alias LOG_TPB = 9
-alias SIZE = 1 << 30
+alias SIZE = 1 << 20
 alias NUM_BLOCKS = ceildiv(SIZE, TPB)
 alias BLOCKS_PER_GRID_STAGE_1 = NUM_BLOCKS
 alias BLOCKS_PER_GRID_STAGE_2 = 1
@@ -20,6 +20,10 @@ alias dtype = DType.int32
 alias layout = Layout.row_major(SIZE)
 alias stage_1_out_layout = Layout.row_major(NUM_BLOCKS)
 alias out_layout = Layout.row_major(1)
+
+
+fn warmup_kernel():
+    _ = thread_idx.x
 
 
 fn sum_kernel[
@@ -43,18 +47,14 @@ fn sum_kernel[
     active_threads = TPB
 
     @parameter
-    for power in range(1, LOG_TPB - 4):
+    for power in range(1, LOG_TPB + 1):
         active_threads >>= 1
         if tid < active_threads:
             sums[tid] += sums[tid + active_threads]
         barrier()
 
-    if tid < 32:
-        var warp_sum: out.element_type = sums[tid]
-        warp_sum = warp.sum(warp_sum)
-
-        if tid == 0:
-            out[block_idx.x] = warp_sum
+    if tid == 0:
+        out[block_idx.x] = sums[tid]
 
 
 def main():

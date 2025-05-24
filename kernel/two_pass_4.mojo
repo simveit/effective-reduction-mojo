@@ -1,17 +1,18 @@
 from testing import assert_equal
 from gpu.host import DeviceContext
 
-from gpu import thread_idx, block_idx, block_dim, grid_dim, barrier
+from gpu import thread_idx, block_idx, block_dim, grid_dim, warp, barrier
 from layout import Layout, LayoutTensor
 from layout.tensor_builder import LayoutTensorBuild as tb
 
 from math import ceildiv
+from memory import UnsafePointer
 from random import randint
 from time import perf_counter_ns
 
 alias TPB = 512
 alias LOG_TPB = 9
-alias SIZE = 1 << 30
+alias SIZE = 1 << 20
 alias NUM_BLOCKS = ceildiv(SIZE, TPB)
 alias BLOCKS_PER_GRID_STAGE_1 = NUM_BLOCKS
 alias BLOCKS_PER_GRID_STAGE_2 = 1
@@ -27,16 +28,16 @@ fn warmup_kernel():
 
 
 fn sum_kernel[
-    in_layout: Layout, out_layout: Layout, size: Int
+    size: Int
 ](
-    out: LayoutTensor[mut=True, dtype, out_layout],
-    a: LayoutTensor[mut=False, dtype, in_layout],
+    out: UnsafePointer[Int32],
+    a: UnsafePointer[Int32],
 ):
     sums = tb[dtype]().row_major[TPB]().shared().alloc()
     global_tid = block_idx.x * block_dim.x + thread_idx.x
     tid = thread_idx.x
     threads_in_grid = TPB * grid_dim.x
-    var sum: out.element_type = 0
+    var sum: Int32 = 0
 
     for i in range(global_tid, size, threads_in_grid):
         sum += a[i]
@@ -47,14 +48,18 @@ fn sum_kernel[
     active_threads = TPB
 
     @parameter
-    for power in range(1, LOG_TPB + 1):
+    for power in range(1, LOG_TPB - 4):
         active_threads >>= 1
         if tid < active_threads:
             sums[tid] += sums[tid + active_threads]
         barrier()
 
-    if tid == 0:
-        out[block_idx.x] = sums[tid]
+    if tid < 32:
+        var warp_sum: Int32 = sums[tid][0]
+        warp_sum = warp.sum(warp_sum)
+
+        if tid == 0:
+            out[block_idx.x] = warp_sum
 
 
 def main():
@@ -69,15 +74,13 @@ def main():
             randint[dtype](a_host.unsafe_ptr(), SIZE, 0, 10)
             # print(a_host)
 
-        out_tensor = LayoutTensor[dtype, out_layout](out.unsafe_ptr())
-        stage_1_out_tensor = LayoutTensor[dtype, stage_1_out_layout](
-            stage_1_out.unsafe_ptr()
-        )
-        a_tensor = LayoutTensor[dtype, layout](a.unsafe_ptr())
+        out_tensor = out.unsafe_ptr()
+        stage_1_out_tensor = stage_1_out.unsafe_ptr()
+        a_tensor = a.unsafe_ptr()
 
         num_warmup = 500
         for _ in range(num_warmup):
-            ctx.enqueue_function[sum_kernel[layout, stage_1_out_layout, SIZE]](
+            ctx.enqueue_function[sum_kernel[SIZE]](
                 stage_1_out_tensor,
                 a_tensor,
                 grid_dim=BLOCKS_PER_GRID_STAGE_1,
@@ -88,11 +91,11 @@ def main():
             #   print("stage 1out:", stage_1_out_host)
             # STAGE 2
             ctx.enqueue_function[
-                sum_kernel[stage_1_out_layout, out_layout, NUM_BLOCKS]
+                sum_kernel[NUM_BLOCKS]
             ](
                 out_tensor,
                 stage_1_out_tensor,
-                grid_dim=BLOCKS_PER_GRID_STAGE_2,
+                grid_dim=BLOCKS_PER_GRID_STAGE_1,
                 block_dim=TPB,
             )
             ctx.synchronize()
@@ -103,7 +106,7 @@ def main():
         # STAGE 1
         num_tries = 10000
         for i in range(num_tries):
-            ctx.enqueue_function[sum_kernel[layout, stage_1_out_layout, SIZE]](
+            ctx.enqueue_function[sum_kernel[SIZE]](
                 stage_1_out_tensor,
                 a_tensor,
                 grid_dim=BLOCKS_PER_GRID_STAGE_1,
@@ -114,7 +117,7 @@ def main():
             #   print("stage 1out:", stage_1_out_host)
             # STAGE 2
             ctx.enqueue_function[
-                sum_kernel[stage_1_out_layout, out_layout, NUM_BLOCKS]
+                sum_kernel[NUM_BLOCKS]
             ](
                 out_tensor,
                 stage_1_out_tensor,
