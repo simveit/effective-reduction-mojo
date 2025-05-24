@@ -12,7 +12,7 @@ from time import perf_counter_ns
 
 alias TPB = 512
 alias LOG_TPB = 9
-alias SIZE = 1 << 29
+alias SIZE = 1 << 30
 alias NUM_BLOCKS = ceildiv(SIZE, TPB)
 alias BLOCKS_PER_GRID_STAGE_1 = NUM_BLOCKS
 alias BLOCKS_PER_GRID_STAGE_2 = 1
@@ -29,10 +29,7 @@ fn warmup_kernel():
 
 fn sum_kernel[
     size: Int
-](
-    out: UnsafePointer[Int32],
-    a: UnsafePointer[Int32],
-):
+](out: UnsafePointer[Int32], a: UnsafePointer[Int32],):
     sums = tb[dtype]().row_major[TPB]().shared().alloc()
     global_tid = block_idx.x * block_dim.x + thread_idx.x
     tid = thread_idx.x
@@ -86,9 +83,7 @@ def main():
             # with stage_1_out.map_to_host() as stage_1_out_host:
             #   print("stage 1out:", stage_1_out_host)
             # STAGE 2
-            ctx.enqueue_function[
-                sum_kernel[NUM_BLOCKS]
-            ](
+            ctx.enqueue_function[sum_kernel[NUM_BLOCKS]](
                 out_tensor,
                 stage_1_out_tensor,
                 grid_dim=BLOCKS_PER_GRID_STAGE_2,
@@ -112,9 +107,7 @@ def main():
             # with stage_1_out.map_to_host() as stage_1_out_host:
             #   print("stage 1out:", stage_1_out_host)
             # STAGE 2
-            ctx.enqueue_function[
-                sum_kernel[NUM_BLOCKS]
-            ](
+            ctx.enqueue_function[sum_kernel[NUM_BLOCKS]](
                 out_tensor,
                 stage_1_out_tensor,
                 grid_dim=BLOCKS_PER_GRID_STAGE_2,
@@ -128,6 +121,7 @@ def main():
         var bandwidth: Float64 = SIZE * 4 / delta / 1e9
         print("delta(s) = ", delta)
         print("GB/s = ", bandwidth)
+        print("% of max = ", 3300 / bandwidth)
 
         expected = ctx.enqueue_create_host_buffer[dtype](1).enqueue_fill(0)
 

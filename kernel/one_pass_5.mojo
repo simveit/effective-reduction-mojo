@@ -2,6 +2,7 @@ from testing import assert_equal
 from gpu.host import DeviceContext
 
 from gpu import thread_idx, block_idx, block_dim, grid_dim, warp, barrier
+from gpu.memory import load
 from layout import Layout, LayoutTensor
 from layout.tensor_builder import LayoutTensorBuild as tb
 
@@ -13,7 +14,8 @@ from time import perf_counter_ns
 
 alias TPB = 512
 alias LOG_TPB = 9
-alias BATCH_SIZE = 6
+alias BATCH_SIZE = 16  # needs to be multiple of WIDTH
+alias WIDTH = 8  # use LOAD 128 instruction
 alias SIZE = 1 << 30
 alias NUM_BLOCKS = ceildiv(SIZE, TPB * BATCH_SIZE)
 alias BLOCKS_PER_GRID_STAGE_1 = NUM_BLOCKS
@@ -30,7 +32,7 @@ fn warmup_kernel():
 
 
 fn sum_kernel[
-    size: Int, batch_size: Int
+    size: Int, batch_size: Int, width: Int
 ](out: UnsafePointer[Int32], a: UnsafePointer[Int32],):
     sums = tb[dtype]().row_major[TPB]().shared().alloc()
     global_tid = block_idx.x * block_dim.x + thread_idx.x
@@ -41,10 +43,10 @@ fn sum_kernel[
     for i in range(global_tid, size, threads_in_grid):
 
         @parameter
-        for j in range(batch_size):
-            idx = i * batch_size + j
+        for j in range(batch_size // width):
+            idx = i * batch_size + j * width
             if idx < size:
-                sum += a[idx]
+                sum += load[width=width](a, idx).reduce_add()
     sums[tid] = sum
     barrier()
 
@@ -84,7 +86,7 @@ def main():
         num_warmup = 500
         for _ in range(num_warmup):
             _ = out.enqueue_fill(0)
-            ctx.enqueue_function[sum_kernel[SIZE, BATCH_SIZE]](
+            ctx.enqueue_function[sum_kernel[SIZE, BATCH_SIZE, WIDTH]](
                 out_tensor,
                 a_tensor,
                 grid_dim=NUM_BLOCKS,
@@ -99,7 +101,7 @@ def main():
         num_tries = 10000
         for i in range(num_tries):
             _ = out.enqueue_fill(0)
-            ctx.enqueue_function[sum_kernel[SIZE, BATCH_SIZE]](
+            ctx.enqueue_function[sum_kernel[SIZE, BATCH_SIZE, WIDTH]](
                 out_tensor,
                 a_tensor,
                 grid_dim=NUM_BLOCKS,

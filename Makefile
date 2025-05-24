@@ -26,7 +26,13 @@ one_pass_2: kernel/one_pass_2.mojo
 one_pass_3: kernel/one_pass_3.mojo
 	$(MOJO_BASE) $^ $(MOJO_OUTPUT_FILE)
 
-compile_all: two_pass_1 two_pass_2 two_pass_3 two_pass_4 one_pass_1 one_pass_2, one_pass_3
+one_pass_4: kernel/one_pass_4.mojo
+	$(MOJO_BASE) $^ $(MOJO_OUTPUT_FILE)
+
+one_pass_5: kernel/one_pass_5.mojo
+	$(MOJO_BASE) $^ $(MOJO_OUTPUT_FILE)
+
+compile_all: two_pass_1 two_pass_2 two_pass_3 two_pass_4 one_pass_1 one_pass_2 one_pass_3 one_pass_4 one_pass_5
 
 run_all: compile_all
 	@echo "Running two_pass_1..."; ./$(OUT_DIR)/two_pass_1
@@ -36,6 +42,8 @@ run_all: compile_all
 	@echo "Running one_pass_1..."; ./$(OUT_DIR)/one_pass_1
 	@echo "Running one_pass_2..."; ./$(OUT_DIR)/one_pass_2
 	@echo "Running one_pass_3..."; ./$(OUT_DIR)/one_pass_3
+	@echo "Running one_pass_3..."; ./$(OUT_DIR)/one_pass_4
+	@echo "Running one_pass_3..."; ./$(OUT_DIR)/one_pass_5
 
 clean:
 	rm -f $(OUT_DIR)/*

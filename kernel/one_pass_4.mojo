@@ -2,6 +2,7 @@ from testing import assert_equal
 from gpu.host import DeviceContext
 
 from gpu import thread_idx, block_idx, block_dim, grid_dim, warp, barrier
+from gpu.memory import load
 from layout import Layout, LayoutTensor
 from layout.tensor_builder import LayoutTensorBuild as tb
 
@@ -13,7 +14,7 @@ from time import perf_counter_ns
 
 alias TPB = 512
 alias LOG_TPB = 9
-alias BATCH_SIZE = 6
+alias BATCH_SIZE = 8  # needs to be power of 2
 alias SIZE = 1 << 30
 alias NUM_BLOCKS = ceildiv(SIZE, TPB * BATCH_SIZE)
 alias BLOCKS_PER_GRID_STAGE_1 = NUM_BLOCKS
@@ -39,12 +40,14 @@ fn sum_kernel[
     var sum: Int32 = 0
 
     for i in range(global_tid, size, threads_in_grid):
-
-        @parameter
-        for j in range(batch_size):
-            idx = i * batch_size + j
-            if idx < size:
-                sum += a[idx]
+        # @parameter
+        # for j in range(batch_size):
+        #    idx = i * batch_size + j
+        #    if idx < size:
+        #        sum += a[idx]
+        idx = i * batch_size
+        if idx < size:
+            sum += load[width=batch_size](a, idx).reduce_add()
     sums[tid] = sum
     barrier()
 

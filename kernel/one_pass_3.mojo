@@ -16,7 +16,7 @@ alias TPB = 512
 alias LOG_TPB = 9
 alias LOG_WS = 5
 alias BATCH_SIZE = 6
-alias SIZE = 1 << 29
+alias SIZE = 1 << 30
 alias NUM_BLOCKS = ceildiv(SIZE, TPB * BATCH_SIZE)
 alias BLOCKS_PER_GRID_STAGE_1 = NUM_BLOCKS
 alias BLOCKS_PER_GRID_STAGE_2 = 1
@@ -33,11 +33,8 @@ fn warmup_kernel():
 
 fn sum_kernel[
     size: Int, batch_size: Int
-](
-    out: UnsafePointer[Int32],
-    a: UnsafePointer[Int32],
-):
-    #sums = tb[dtype]().row_major[TPB]().shared().alloc()
+](out: UnsafePointer[Int32], a: UnsafePointer[Int32],):
+    # sums = tb[dtype]().row_major[TPB]().shared().alloc()
     sums = stack_allocation[
         TPB,
         Scalar[dtype],
@@ -49,6 +46,7 @@ fn sum_kernel[
     var sum: Int32 = 0
 
     for i in range(global_tid, size, threads_in_grid):
+
         @parameter
         for j in range(batch_size):
             idx = i * batch_size + j
@@ -126,6 +124,7 @@ def main():
         var bandwidth: Float64 = SIZE * 4 / delta / 1e9
         print("delta(s) = ", delta)
         print("GB/s = ", bandwidth)
+        print("% of max = ", 3300 / bandwidth)
 
         expected = ctx.enqueue_create_host_buffer[dtype](1).enqueue_fill(0)
 

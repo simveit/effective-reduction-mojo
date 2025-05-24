@@ -11,7 +11,7 @@ from time import perf_counter_ns
 
 alias TPB = 512
 alias LOG_TPB = 9
-alias SIZE = 1 << 29
+alias SIZE = 1 << 30
 alias NUM_BLOCKS = ceildiv(SIZE, TPB)
 alias BLOCKS_PER_GRID_STAGE_1 = NUM_BLOCKS
 alias BLOCKS_PER_GRID_STAGE_2 = 1
@@ -129,6 +129,7 @@ def main():
         var bandwidth: Float64 = SIZE * 4 / delta / 1e9
         print("delta(s) = ", delta)
         print("GB/s = ", bandwidth)
+        print("% of max = ", 3300 / bandwidth)
 
         expected = ctx.enqueue_create_host_buffer[dtype](1).enqueue_fill(0)
 
