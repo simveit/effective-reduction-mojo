@@ -1,4 +1,4 @@
-Execute `make run all` to run compile and run all the kernels.
+After logging into `magic shell`, execute `make run all` to run compile and run all the kernels.
 
 `H100, N = 2^30, 3300 GB/s max`
 | Kernel | Bandwidth (GB/s) | % of Max Bandwidth | Implementation |
